@@ -11,6 +11,9 @@ import shutil
 from db import get_db, File, FileChunk
 from file_parser import FileParser
 from background_tasks import TextProcessor
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
 
 # Load environment variables
 load_dotenv()
@@ -22,6 +25,8 @@ GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-2.5-flash-lite")
 genai.configure(api_key=GEMINI_API_KEY)
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 # ---------- Request Models ----------
 class QuestionModel(BaseModel):
@@ -33,7 +38,12 @@ class AskModel(BaseModel):
 
 
 # ---------- ROUTES ----------
+
 @app.get("/")
+async def serve_ui():
+    return FileResponse("static/index.html")
+
+@app.get("/get-uploaded-files/")
 async def root(db: Session = Depends(get_db)):
     """List all uploaded files"""
     files = db.scalars(select(File)).all()
@@ -72,7 +82,7 @@ async def upload_file(background_tasks: BackgroundTasks, file: UploadFile, db: S
         # Process embeddings in background
         background_tasks.add_task(TextProcessor(db, new_file.file_id).chunk_and_embed, file_text_content)
 
-        return {"info": f"✅ File '{file.filename}' uploaded and processing started"}
+        return {"info": f"✅ File '{file.filename}' uploaded and processing started", "file_id": new_file.file_id}
 
     except Exception as e:
         print(f"Error: {e}")

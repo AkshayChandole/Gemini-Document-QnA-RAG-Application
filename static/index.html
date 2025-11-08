@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gemini Document Q&A</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    :root {
+      --bg-color: #f9f9f9;
+      --text-color: #222;
+      --card-bg: #fff;
+      --button-bg: #1e88e5;
+      --button-hover: #1565c0;
+      --danger-bg: #e53935;
+      --accent-color: #1e88e5;
+    }
+
+    body.dark {
+      --bg-color: #121212;
+      --text-color: #e0e0e0;
+      --card-bg: #1e1e1e;
+      --button-bg: #3949ab;
+      --button-hover: #5c6bc0;
+      --danger-bg: #d32f2f;
+      --accent-color: #90caf9;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    h1 {
+      color: var(--accent-color);
+      margin-top: 30px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      padding: 25px;
+      margin: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      width: 90%;
+      max-width: 600px;
+      transition: background 0.3s;
+    }
+
+    button {
+      background-color: var(--button-bg);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.3s;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      background-color: var(--button-hover);
+    }
+
+    .danger-btn {
+      background-color: var(--danger-bg);
+    }
+
+    .toggle-btn {
+      position: fixed;
+      bottom: 25px;
+      right: 25px;
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 12px 16px;
+      border-radius: 50%;
+      font-size: 18px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+      transition: all 0.3s ease;
+    }
+
+    .toggle-btn:hover {
+      transform: scale(1.1);
+      background: var(--button-hover);
+    }
+
+    #question-section {
+      display: none;
+    }
+
+    #answer {
+      background: var(--card-bg);
+      border-radius: 10px;
+      padding: 15px;
+      margin-top: 15px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    pre, code {
+      background: #333;
+      color: #fff;
+      padding: 8px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+
+    .status {
+      margin-top: 10px;
+      font-weight: bold;
+      color: var(--accent-color);
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>📄 Gemini Document Q&A</h1>
+
+  <!-- Upload Section -->
+  <div class="card" id="upload-section">
+    <h3>1️⃣ Upload your document</h3>
+    <input type="file" id="fileInput" accept=".txt,.pdf" />
+    <button id="uploadBtn">Upload</button>
+    <button class="danger-btn hidden" id="clearUploadBtn">Clear Upload</button>
+    <div id="uploadStatus" class="status"></div>
+  </div>
+
+  <!-- Question Section -->
+  <div class="card" id="question-section">
+    <h3>2️⃣ Ask a question about your document</h3>
+    <input type="text" id="questionInput" placeholder="Type your question here..." style="width:100%; padding:10px; border-radius:6px; border:1px solid #ccc;">
+    <button id="askBtn">Ask</button>
+    <button class="danger-btn hidden" id="clearQuestionBtn">Clear</button>
+    <div id="answer"></div>
+  </div>
+
+  <!-- Dark Mode Button -->
+  <button class="toggle-btn" onclick="toggleTheme()">🌙</button>
+
+  <script>
+    let darkMode = false;
+    let uploaded = false;
+    let currentDocumentId = null;
+
+    const fileInput = document.getElementById("fileInput");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const clearUploadBtn = document.getElementById("clearUploadBtn");
+    const uploadStatus = document.getElementById("uploadStatus");
+
+    const questionSection = document.getElementById("question-section");
+    const questionInput = document.getElementById("questionInput");
+    const askBtn = document.getElementById("askBtn");
+    const clearQuestionBtn = document.getElementById("clearQuestionBtn");
+    const answerDiv = document.getElementById("answer");
+
+    // Upload File
+    uploadBtn.addEventListener("click", async () => {
+      const file = fileInput.files[0];
+      if (!file) {
+        uploadStatus.textContent = "⚠️ Please choose a file first!";
+        return;
+      }
+
+      uploadStatus.textContent = "📤 Uploading...";
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch("/uploadfile/", {
+          method: "POST",
+          body: formData
+        });
+
+        if (!res.ok) throw new Error("Upload failed");
+        const data = await res.json();
+
+        // try to extract file_id if backend sends it
+        if (data.file_id) currentDocumentId = data.file_id;
+        else if (data.id) currentDocumentId = data.id;
+        else currentDocumentId = 1; // fallback
+
+        uploaded = true;
+        uploadStatus.textContent = `✅ File "${file.name}" uploaded successfully! You can now ask questions.`;
+        questionSection.style.display = "block";
+
+        uploadBtn.classList.add("hidden");
+        clearUploadBtn.classList.remove("hidden");
+      } catch (err) {
+        uploadStatus.textContent = "❌ Error uploading file: " + err.message;
+      }
+    });
+
+    // Ask Question
+    askBtn.addEventListener("click", async () => {
+      const question = questionInput.value.trim();
+      if (!question) {
+        answerDiv.innerHTML = `<p style="color:red;">⚠️ Please enter a question.</p>`;
+        return;
+      }
+
+      if (!currentDocumentId) {
+        answerDiv.innerHTML = `<p style="color:red;">⚠️ Please upload a document first.</p>`;
+        return;
+      }
+
+      answerDiv.innerHTML = "<p>🤔 Thinking...</p>";
+      try {
+        const res = await fetch("/ask/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ document_id: currentDocumentId, question })
+        });
+
+        if (!res.ok) throw new Error("Failed to fetch answer");
+        const data = await res.json();
+
+        answerDiv.innerHTML = marked.parse(data.response || "No answer found.");
+
+        askBtn.classList.add("hidden");
+        clearQuestionBtn.classList.remove("hidden");
+      } catch (err) {
+        answerDiv.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
+      }
+    });
+
+    // Clear Upload
+    clearUploadBtn.addEventListener("click", () => {
+      fileInput.value = "";
+      uploaded = false;
+      currentDocumentId = null;
+      uploadStatus.textContent = "";
+      questionSection.style.display = "none";
+      answerDiv.innerHTML = "";
+      questionInput.value = "";
+
+      uploadBtn.classList.remove("hidden");
+      clearUploadBtn.classList.add("hidden");
+      askBtn.classList.remove("hidden");
+      clearQuestionBtn.classList.add("hidden");
+    });
+
+    // Clear Question
+    clearQuestionBtn.addEventListener("click", () => {
+      questionInput.value = "";
+      answerDiv.innerHTML = "";
+      askBtn.classList.remove("hidden");
+      clearQuestionBtn.classList.add("hidden");
+    });
+
+    // Dark Mode
+    function toggleTheme() {
+      darkMode = !darkMode;
+      document.body.classList.toggle("dark", darkMode);
+      const btn = document.querySelector(".toggle-btn");
+      btn.innerText = darkMode ? "☀️" : "🌙";
+    }
+  </script>
+</body>
+</html>
