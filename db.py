@@ -52,7 +52,7 @@ class FileChunk(Base):
     chunk_id = Column(Integer, primary_key=True)
     file_id = Column(Integer, ForeignKey("files.file_id"))
     chunk_text = Column(Text)
-    embedding_vector = Column(Vector(1536))
+    embedding_vector = Column(Vector(384))
 
 # Ensure pgvector extension exists (safe to run multiple times)
 with engine.begin() as connection:

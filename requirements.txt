@@ -8,3 +8,5 @@ PyPDF2
 SQLAlchemy
 SQLAlchemy-Utils
 pgvector
+nltk
+sentence-transformers
