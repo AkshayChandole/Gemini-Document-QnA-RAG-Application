@@ -1,6 +1,4 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from db import Base, engine, SessionLocal
+from db import engine, SessionLocal
 
 # Attempt to connect to the database and create a session
 try:
