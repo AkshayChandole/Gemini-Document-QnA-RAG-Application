@@ -1,0 +1,10 @@
+fastapi
+python-dotenv
+google-generativeai
+pytesseract
+pillow
+PyMuPDF
+PyPDF2
+SQLAlchemy
+SQLAlchemy-Utils
+pgvector
