@@ -1,4 +1,4 @@
-# 📄 Simple RAG Application
+# 📄 Gemini Document Q&A - RAG Application
 
 A lightweight Retrieval-Augmented Generation (RAG) application that enables intelligent document Q&A using Google Gemini AI. Upload documents (PDF or TXT), and ask questions about their content with context-aware AI-powered responses.
 
